@@ -56,7 +56,7 @@ function setup() {
 function draw() {
 	for (let i = 0; i < DENSITY; i++) {
 		for (let j = 0; j < DENSITY; j++) {
-			if (files[i][j] == -1) continue;
+			if (files[i][j] === -1) continue;
 			rect(xpos(j), ypos(i), span(files[i][j]), span(files[i][j]));
 		}
 	}
@@ -72,7 +72,7 @@ function createFileStructure() {
 	//fill array
 	for (let i = 0; i < DENSITY; i++) {
 		for (let j = 0; j < DENSITY; j++) {
-			if (files[i][j] == -1) continue;
+			if (files[i][j] === -1) continue;
 
 			//find fitting squares
 			let upperBound = DENSITY / 4 + 1;
@@ -98,7 +98,7 @@ function createFileStructure() {
 			//fill out found square
 			for (let k = 0; k < attempt; k++)
 				for (let l = 0; l < attempt; l++)
-					if (k == 0 && l == 0) files[i][j] = attempt;
+					if (k === 0 && l === 0) files[i][j] = attempt;
 					else files[i + k][j + l] = -1;
 		}
 	}
