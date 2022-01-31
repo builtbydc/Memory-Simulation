@@ -108,7 +108,7 @@ function setup() {
 	drawFileStructure();
 
 	textSize(30);
-	text("Storage", 300, Y_OFFSET_STORE / 2 + 10);
+	text("Storage", X_OFFSET_STORE, Y_OFFSET_STORE - 10);
 
 	LRU = new iq();
 
@@ -148,11 +148,11 @@ function draw() {
 
 	textSize(30);
 	fill(0);
-	text("DRAM", width / 2 + 300, Y_OFFSET_DRAM / 2 + 10);
-	text("PMEM", width / 2 + 300, 310);
+	text("DRAM", X_OFFSET_MEM, Y_OFFSET_DRAM - 10);
+	text("PMEM", X_OFFSET_MEM, Y_OFFSET_PMEM - 10);
 	textSize(15);
-	text("Page Reads: " + pageReads + "\tScans: " + scans + "\tPromotions and Demotions: " + promDem,
-		 500, 700);
+	text("Page Reads: " + pageReads + "\t|\tScans: " + scans + "\t|\tPromotions & Demotions: " + 2*promDem,
+		 X_OFFSET_STORE, height - 30);
 
 	stroke(255);
 	for(let i = 0; i < DRAMindex; i++) {
@@ -361,7 +361,6 @@ class Node {
 class iq {
 	constructor() {
 		this.head = null;
-		this.size = 0;
 	}
 
 	add(element) {
@@ -390,7 +389,6 @@ class iq {
 			this.head = node;
 			this.head.next = current;
 			this.head.next.previous = this.head;
-			this.size++;
 		}
 	}
 
@@ -402,13 +400,5 @@ class iq {
 		this.add(traverse.element);
 
 		return traverse.element;
-	}
-
-	print() {
-		let traverse = this.head;
-		while(traverse !== null) {
-			console.log(traverse);
-			traverse = traverse.next;
-		}
 	}
 }
