@@ -74,12 +74,17 @@ let fileList;
 let DRAMindex = 0;
 let DRAM;
 let heatDRAM = [];
+let LRU;
 
 let PMEMindex = 0; 
 let PMEM;
 let heatPMEM = [];
 
 let swap;
+
+let pageReads = 0;
+let promDem = 0;
+let scans = 0;
 
 function setup() {
 	createCanvas(windowWidth, windowHeight)
@@ -102,6 +107,25 @@ function setup() {
 	fill(0);
 	drawFileStructure();
 
+	textSize(30);
+	text("Storage", 300, Y_OFFSET_STORE / 2 + 10);
+
+	LRU = new iq();
+
+	let b = new iq();
+	for(let i = 0; i < 100; i++) {
+		b.add(int(random(0, 100)));
+	}
+	console.log(b.size);
+	for(let i = 0; i < 100; i++) {
+		console.log(b.get());
+	}
+	let traverse = b.head;
+	while(traverse !== null) {
+		console.log(traverse);
+		traverse = traverse.next;
+	}
+
 }
 
 let interval = 60;
@@ -120,6 +144,15 @@ function draw() {
 	fill(255);
 	noStroke();
 	rect(width / 2, 0, width / 2, height);
+	rect(0, Y_OFFSET_STORE + DENSITY_STORE*UNIT_STORE, width / 2, Y_OFFSET_STORE);
+
+	textSize(30);
+	fill(0);
+	text("DRAM", width / 2 + 300, Y_OFFSET_DRAM / 2 + 10);
+	text("PMEM", width / 2 + 300, 310);
+	textSize(15);
+	text("Page Reads: " + pageReads + "\tScans: " + scans + "\tPromotions and Demotions: " + promDem,
+		 500, 700);
 
 	stroke(255);
 	for(let i = 0; i < DRAMindex; i++) {
@@ -149,48 +182,46 @@ function draw() {
 }
 
 function scanMem() {
+	scans++;
 	for(let i = 0; i < DRAMindex; i++) {
 		if(heatDRAM[i] > 1) heatDRAM[i] = 1;
 		else if(heatDRAM[i] > -1) heatDRAM[i]--;
 	}
 	for(let i = 0; i < PMEMindex; i++) {
 		if(heatPMEM[i] > 1) {
+			promDem++;
 			let file = PMEM[i][0];
 			let page = PMEM[i][1];
 			let loc = fileList[file].pages[page].location;
 
-			for(let j = 0; j < DRAMindex; j++) {
-				if(heatDRAM[j] < 0) {
-					for(let k = 0; k < DRAMindex - 1; k++) {
-						if(swap[k][0] == -1) {
-							swap[k][0] = ((loc - DRAMindex) % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
-							swap[k][1] = int((loc - DRAMindex) / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_PMEM;
-							swap[k][2] = (j % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
-							swap[k][3] = int(j / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_DRAM;
-							swap[k][4] = (swap[k][2] - swap[k][0]) / interval;
-							swap[k][5] = (swap[k][3] - swap[k][1]) / interval;
 
-							swap[k+1][0] = (j % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
-							swap[k+1][1] = int(j / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_DRAM;
-							swap[k+1][2] = ((loc - DRAMindex) % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
-							swap[k+1][3] = int((loc - DRAMindex) / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_PMEM;
-							swap[k+1][4] = (swap[k+1][2] - swap[k+1][0]) / interval;
-							swap[k+1][5] = (swap[k+1][3] - swap[k+1][1]) / interval;
+			let j = LRU.get();
+			for(let k = 0; k < DRAMindex - 1; k++) {
+				if(swap[k][0] == -1) {
+					swap[k][0] = ((loc - DRAMindex) % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
+					swap[k][1] = int((loc - DRAMindex) / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_PMEM;
+					swap[k][2] = (j % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
+					swap[k][3] = int(j / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_DRAM;
+					swap[k][4] = (swap[k][2] - swap[k][0]) / interval;
+					swap[k][5] = (swap[k][3] - swap[k][1]) / interval;
 
-							break;
-						}
-					}
+					swap[k+1][0] = (j % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
+					swap[k+1][1] = int(j / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_DRAM;
+					swap[k+1][2] = ((loc - DRAMindex) % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
+					swap[k+1][3] = int((loc - DRAMindex) / DENSITY_MEM) * UNIT_MEM + Y_OFFSET_PMEM;
+					swap[k+1][4] = (swap[k+1][2] - swap[k+1][0]) / interval;
+					swap[k+1][5] = (swap[k+1][3] - swap[k+1][1]) / interval;
 
-					fileList[file].pages[page].location = j;
-					fileList[DRAM[j][0]].pages[DRAM[j][1]] = loc;
-					PMEM[i] = DRAM[j];
-					DRAM[j][0] = file;
-					DRAM[j][1] = page;
-					heatDRAM[j] = 0;
 					break;
 				}
 			}
 
+			fileList[file].pages[page].location = j;
+			fileList[DRAM[j][0]].pages[DRAM[j][1]] = loc;
+			PMEM[i] = DRAM[j];
+			DRAM[j][0] = file;
+			DRAM[j][1] = page;
+			heatDRAM[j] = 0;
 			heatPMEM[i] = 0;
 		}
 		else if(heatPMEM[i] > -1) heatPMEM[i]--;
@@ -200,6 +231,7 @@ function scanMem() {
 function requestPages() {
 	for(let i = 0; i < 60; i++) {
 
+		pageReads++;
 		let fileIndex = int(random(0, 0.6*fileList.length));
 		let pageIndex = int(random(0, 0.1141 * pow(fileList[fileIndex].size, 2)));
 		fill(255, 255, 255, 128);
@@ -210,6 +242,7 @@ function requestPages() {
 
 		if(fileList[fileIndex].pages[pageIndex].location == -1) {
 			if(DRAMindex < HEIGHT_DRAM * DENSITY_MEM) {
+				LRU.add(DRAMindex);
 				fileList[fileIndex].pages[pageIndex].location = DRAMindex;
 				DRAM[DRAMindex][0] = fileIndex; DRAM[DRAMindex][1] = pageIndex;
 				heatDRAM[DRAMindex++] = 0;
@@ -223,6 +256,7 @@ function requestPages() {
 		} else if(fileList[fileIndex].pages[pageIndex].location >= HEIGHT_DRAM * DENSITY_MEM) {
 			heatPMEM[fileList[fileIndex].pages[pageIndex].location - DRAMindex]++;
 		} else {
+			LRU.add(fileList[fileIndex].pages[pageIndex].location);
 			heatDRAM[fileList[fileIndex].pages[pageIndex].location]++;
 		}
 	}
@@ -312,6 +346,69 @@ class SimFile {
 			for(let j = 0; j < this.size; j++) {
 				this.pages[i*this.size + j] = new SimPage(this, j, i, -1);
 			}
+		}
+	}
+}
+
+class Node {
+	constructor(element) {
+		this.element = element;
+		this.next = null;
+		this.previous = null;
+	}
+}
+
+class iq {
+	constructor() {
+		this.head = null;
+		this.size = 0;
+	}
+
+	add(element) {
+		let node = new Node(element);
+		let current;
+
+		if(this.head === null) {
+			this.head = node;
+		} else {
+			let traverse = this.head;
+			while(traverse !== null) {
+				if(traverse.element === element) {
+					if(traverse.previous !== null) {
+						traverse.previous.next = traverse.next;
+						if(traverse.next !== null)
+							traverse.next.previous = traverse.previous;
+					} else {
+						this.head = traverse.next;
+					}
+					break;
+				}
+				if(traverse.next === null) break;
+				traverse = traverse.next;
+			}
+			current = this.head;
+			this.head = node;
+			this.head.next = current;
+			this.head.next.previous = this.head;
+			this.size++;
+		}
+	}
+
+	get() {
+		let traverse = this.head;
+		while(traverse.next !== null)
+			traverse = traverse.next;
+
+		this.add(traverse.element);
+
+		return traverse.element;
+	}
+
+	print() {
+		let traverse = this.head;
+		while(traverse !== null) {
+			console.log(traverse);
+			traverse = traverse.next;
 		}
 	}
 }
