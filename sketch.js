@@ -110,15 +110,15 @@ function setup() {
 	textSize(30);
 	text("Storage", X_OFFSET_STORE, Y_OFFSET_STORE - 10);
 
-	LRU = new iq();
+	LRU = new HeatQueue();
 
-	let b = new iq();
-	for(let i = 0; i < 100; i++) {
-		b.add(int(random(0, 100)));
+	let b = new HeatQueue();
+	for(let i = 0; i < 40; i++) {
+		b.touch(i);
 	}
 	console.log(b.size);
-	for(let i = 0; i < 100; i++) {
-		console.log(b.get());
+	for(let i = 0; i < 30; i++) {
+		console.log(b.deqenq());
 	}
 	let traverse = b.head;
 	while(traverse !== null) {
@@ -195,7 +195,7 @@ function scanMem() {
 			let loc = fileList[file].pages[page].location;
 
 
-			let j = LRU.get();
+			let j = LRU.deqenq();
 			for(let k = 0; k < DRAMindex - 1; k++) {
 				if(swap[k][0] == -1) {
 					swap[k][0] = ((loc - DRAMindex) % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
@@ -242,7 +242,7 @@ function requestPages() {
 
 		if(fileList[fileIndex].pages[pageIndex].location == -1) {
 			if(DRAMindex < HEIGHT_DRAM * DENSITY_MEM) {
-				LRU.add(DRAMindex);
+				LRU.touch(DRAMindex);
 				fileList[fileIndex].pages[pageIndex].location = DRAMindex;
 				DRAM[DRAMindex][0] = fileIndex; DRAM[DRAMindex][1] = pageIndex;
 				heatDRAM[DRAMindex++] = 0;
@@ -256,7 +256,7 @@ function requestPages() {
 		} else if(fileList[fileIndex].pages[pageIndex].location >= HEIGHT_DRAM * DENSITY_MEM) {
 			heatPMEM[fileList[fileIndex].pages[pageIndex].location - DRAMindex]++;
 		} else {
-			LRU.add(fileList[fileIndex].pages[pageIndex].location);
+			LRU.touch(fileList[fileIndex].pages[pageIndex].location);
 			heatDRAM[fileList[fileIndex].pages[pageIndex].location]++;
 		}
 	}
@@ -358,47 +358,61 @@ class Node {
 	}
 }
 
-class iq {
+class HeatQueue {
 	constructor() {
 		this.head = null;
+		this.tail = null;
 	}
 
-	add(element) {
+	touch(element) {
 		let node = new Node(element);
-		let current;
 
+		//empty q
 		if(this.head === null) {
 			this.head = node;
-		} else {
-			let traverse = this.head;
-			while(traverse !== null) {
-				if(traverse.element === element) {
-					if(traverse.previous !== null) {
-						traverse.previous.next = traverse.next;
-						if(traverse.next !== null)
-							traverse.next.previous = traverse.previous;
-					} else {
-						this.head = traverse.next;
-					}
-					break;
-				}
-				if(traverse.next === null) break;
-				traverse = traverse.next;
-			}
-			current = this.head;
-			this.head = node;
-			this.head.next = current;
-			this.head.next.previous = this.head;
+			this.tail = node;
+			return;
 		}
+
+		//remove element from q
+		let traverse = this.head;
+		while(traverse !== null) {
+			if(traverse.element === element) {
+				if(traverse.previous === null) { //first element or only element
+					return;
+				} else if(traverse.next === null) { //last element of min 2
+					//tail management
+					this.tail = this.tail.previous;
+					this.tail.next = null;
+				} else { //middle element of min 3
+					traverse.previous.next = traverse.next;
+					traverse.next.previous = traverse.previous;
+				}
+				break;
+			}
+			traverse = traverse.next;
+		}
+
+		//head management
+		let current = this.head;
+		this.head = node;
+		this.head.next = current;
+		this.head.next.previous = this.head;
 	}
 
-	get() {
-		let traverse = this.head;
-		while(traverse.next !== null)
-			traverse = traverse.next;
+	deqenq() {
+		let node = new Node(this.tail.element);
 
-		this.add(traverse.element);
+		//tail management
+		this.tail = this.tail.previous;
+		this.tail.next = null;
 
-		return traverse.element;
+		//head management
+		let current = this.head;
+		this.head = node;
+		this.head.next = current;
+		this.head.next.previous = this.head;
+
+		return node.element;
 	}
 }
