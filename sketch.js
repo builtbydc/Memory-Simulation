@@ -96,14 +96,12 @@ function setConstants() {
 }
 
 function setup() {
+	frameRate(60);
 	createCanvas(windowWidth, windowHeight)
 	setConstants();
 
 	fileStructure = createFileStructure();
 	fileList = fileAnalysis(fileStructure);
-
-	DRAM = create2DArray(HEIGHT_DRAM * DENSITY_MEM);
-	PMEM = create2DArray(HEIGHT_PMEM * DENSITY_MEM);
 
 	swap = create2DArray(HEIGHT_DRAM * DENSITY_MEM);
 	for(let i = 0; i < HEIGHT_DRAM * DENSITY_MEM; i++) {
@@ -112,10 +110,13 @@ function setup() {
 
 	background(255);
 
-	stroke(255);
-	fill(0);
+	stroke(0);
+	strokeWeight(span_store(1)/4);
+	fill(255);
 	drawFileStructure();
 
+	noStroke();
+	fill(0);
 	textSize(30);
 	text("Storage", X_OFFSET_STORE, Y_OFFSET_STORE - 10);
 
@@ -128,14 +129,29 @@ let interval = 60;
 let time = 0;
 
 function draw() {
+	/*
 	fill(0, 0, 0, 30);
 	stroke(255);
 	drawFileStructure();
-	
+	*/
+
 	if(time == interval) {
 		scanMem();
 		time = 0;
 	}
+
+	/*
+	fill(0,0,0, 100);
+	for(let i = 0; i < dram.size; i++) {
+		if(swap[i][0] != -1) {
+			if(abs(swap[i][0] - swap[i][2]) < 0.001) {
+				swap[i][0] = -1;
+				continue;
+			} 
+			rect(swap[i][0] += swap[i][4], swap[i][1] += swap[i][5], span_mem(1), span_mem(1));
+		}
+	}
+	*/
 
 	fill(255);
 	noStroke();
@@ -147,8 +163,8 @@ function draw() {
 	text("DRAM", X_OFFSET_MEM, Y_OFFSET_DRAM - 10);
 	text("PMEM", X_OFFSET_MEM, Y_OFFSET_PMEM - 10);
 	textSize(15);
-	text("Page Reads: " + pageReads + "\t|\tScans: " + scans + "\t|\tPromotions & Demotions: " + 2*promDem,
-		 X_OFFSET_STORE, height - 30);
+	text("Page Reads: " + pageReads + "\t|\tScans: " + scans + "\t|\tPromotions & Demotions: " + 2*promDem + "\t|\tFrame Rate: " + frameRate(),
+		X_OFFSET_STORE, height - 30);
 
 	noStroke();
 	for(let i = 0; i < dram.size; i++) {
@@ -165,20 +181,8 @@ function draw() {
 		else fill(0);
 		rect(xpos_mem(i % DENSITY_MEM), ypos_pmem(int(i / DENSITY_MEM)), span_mem(1), span_mem(1));
 	}
-
-	fill(0,0,0, 100);
-	for(let i = 0; i < dram.size; i++) {
-		if(swap[i][0] != -1) {
-			if(abs(swap[i][0] - swap[i][2]) < 0.001) {
-				swap[i][0] = -1;
-				continue;
-			} 
-			rect(swap[i][0] += swap[i][4], swap[i][1] += swap[i][5], span_mem(1), span_mem(1));
-		}
-	}
 	
 	requestPages();
-
 	time++;
 }
 
@@ -192,6 +196,7 @@ function scanMem() {
 		if(pmem.pages[i].temperature > 1) {
 			promDem++;
 			let j = lru.deqenq();
+			/*
 			for(let k = 0; k < dram.size - 1; k++) {
 				if(swap[k][0] == -1) {
 					swap[k][0] = (i % DENSITY_MEM) * UNIT_MEM + X_OFFSET_MEM;
@@ -211,6 +216,7 @@ function scanMem() {
 					break;
 				}
 			}
+			*/
 			promotePage(i, j);
 		}
 		else if(pmem.pages[i].temperature > -1) pmem.pages[i].temperature--;
@@ -227,16 +233,15 @@ function promotePage(promote, demote) {
 }
 
 function requestPages() {
-	for(let i = 0; i < 60; i++) {
+	for(let i = 0; i < 70; i++) {
 
 		pageReads++;
 		let fileIndex = int(random(0, fileList.length)) //0.6
-		let pageIndex = int(random(0, pow(fileList[fileIndex].size, 2))); //0.1141
-		fill(255, 255, 255, 128);
+		let pageIndex = int(random(0, 0.4*pow(fileList[fileIndex].size, 2))); //0.1141
+		
+		fill(124, 242, 18, 90);
 		noStroke();
-		rect(xpos_store(fileList[fileIndex].x + pageIndex % fileList[fileIndex].size),
-				ypos_store(fileList[fileIndex].y + int(pageIndex / fileList[fileIndex].size)),
-				span_store(1), span_store(1));
+		drawPageAccess(fileIndex, pageIndex);
 
 		if(fileList[fileIndex].pages[pageIndex].location == -1) {
 			if(dram.size < HEIGHT_DRAM * DENSITY_MEM) {
@@ -260,12 +265,35 @@ function requestPages() {
 	}
 }
 
+function drawPageAccess(fileIndex, pageIndex) {
+	let fileX = fileList[fileIndex].x;
+	let fileY = fileList[fileIndex].y;
+	let pageX = pageIndex % fileList[fileIndex].size;
+	let pageY = int(pageIndex / fileList[fileIndex].size);
+
+	let xOffset = 0;
+	let yOffset = 0;
+	let squareWidth = span_store(1);
+	let squareHeight = span_store(1);
+
+	if(pageX === 0)
+		squareWidth -= span_store(1) / 4, xOffset += span_store(1) / 4;
+	if(pageX === fileList[fileIndex].size - 1)
+		squareWidth -= span_store(1) / 4;
+	if(pageY === 0)
+		squareHeight -= span_store(1) / 4, yOffset += span_store(1) / 4;
+	if(pageY === fileList[fileIndex].size - 1)
+		squareHeight -= span_store(1) / 4;
+
+	rect(xpos_store(fileX + pageX) + xOffset,
+			ypos_store(fileY + pageY) + yOffset,
+			squareWidth, squareHeight);
+} 
+
 function drawFileStructure() {
-	for (let i = 0; i < DENSITY_STORE; i++) {
-		for (let j = 0; j < DENSITY_STORE; j++) {
-			if (fileStructure[i][j] === -1) continue;
-			rect(xpos_store(j), ypos_store(i), span_store(fileStructure[i][j]), span_store(fileStructure[i][j]));
-		}
+	let len = fileList.length;
+	for(let i = 0; i < len; i++) {
+		rect(xpos_store(fileList[i].x), ypos_store(fileList[i].y), span_store(fileList[i].size), span_store(fileList[i].size));
 	}
 }
 
